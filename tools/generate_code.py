@@ -465,31 +465,78 @@ func _create_unit(unit_type: String, pos: Vector2, is_player: bool) -> Node2D:
 # --------------- HUD ---------------
 
 func _create_hud() -> void:
-\t## Minimal overlay HUD showing resources and buttons.
 \tvar canvas := CanvasLayer.new()
 \tcanvas.name = "HUD"
 \tadd_child(canvas)
 
-\t# Energy label
+\t# --- Top Resource Panel ---
+\tvar top_panel := PanelContainer.new()
+\tvar top_sb := StyleBoxFlat.new()
+\ttop_sb.bg_color = Color(0.04, 0.06, 0.12, 0.88)
+\ttop_sb.border_color = Color(0.15, 0.4, 0.7, 0.6)
+\ttop_sb.set_border_width_all(2)
+\ttop_sb.set_corner_radius_all(6)
+\ttop_sb.set_content_margin_all(8)
+\ttop_panel.add_theme_stylebox_override("panel", top_sb)
+\ttop_panel.position = Vector2(8, 8)
+\ttop_panel.size = Vector2(280, 40)
+\tcanvas.add_child(top_panel)
+
+\tvar hbox := HBoxContainer.new()
+\ttop_panel.add_child(hbox)
+
+\tvar e_icon := ColorRect.new()
+\te_icon.custom_minimum_size = Vector2(14, 14)
+\te_icon.color = Color(1.0, 0.9, 0.2)
+\thbox.add_child(e_icon)
+
 \tvar lbl := Label.new()
 \tlbl.name = "EnergyLabel"
-\tlbl.position = Vector2(10, 10)
-\tlbl.text = "Energy: 0"
-\tcanvas.add_child(lbl)
+\tlbl.text = " Energy: 100  "
+\thbox.add_child(lbl)
 
-\t# Minerals label
+\tvar m_icon := ColorRect.new()
+\tm_icon.custom_minimum_size = Vector2(14, 14)
+\tm_icon.color = Color(0.35, 0.75, 1.0)
+\thbox.add_child(m_icon)
+
 \tvar mlbl := Label.new()
 \tmlbl.name = "MineralsLabel"
-\tmlbl.position = Vector2(10, 35)
-\tmlbl.text = "Minerals: 0"
-\tcanvas.add_child(mlbl)
+\tmlbl.text = " Minerals: 50"
+\thbox.add_child(mlbl)
 
-\t# Back to galaxy button
+\t# --- Build Panel ---
+\tvar build_panel := PanelContainer.new()
+\tvar bp_sb := StyleBoxFlat.new()
+\tbp_sb.bg_color = Color(0.04, 0.06, 0.12, 0.88)
+\tbp_sb.border_color = Color(0.15, 0.4, 0.7, 0.6)
+\tbp_sb.set_border_width_all(2)
+\tbp_sb.set_corner_radius_all(6)
+\tbp_sb.set_content_margin_all(8)
+\tbuild_panel.add_theme_stylebox_override("panel", bp_sb)
+\tbuild_panel.position = Vector2(8, 58)
+\tcanvas.add_child(build_panel)
+
+\tvar vbox := VBoxContainer.new()
+\tbuild_panel.add_child(vbox)
+
+\tvar btitle := Label.new()
+\tbtitle.text = "BUILD"
+\tbtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+\tvbox.add_child(btitle)
+
+\t_add_styled_btn(vbox, "Power Plant (50E)", func(): _start_build("power_plant"))
+\t_add_styled_btn(vbox, "Factory (100E)", func(): _start_build("factory"))
+\t_add_styled_btn(vbox, "Train Soldier (30E)", func(): _train_soldier())
+
+\tvar sep := HSeparator.new()
+\tvbox.add_child(sep)
+
 \tvar back_btn := Button.new()
 \tback_btn.text = "Galaxy Map"
-\tback_btn.position = Vector2(10, 70)
+\tback_btn.custom_minimum_size = Vector2(180, 28)
 \tback_btn.pressed.connect(func(): GameManager.return_to_galaxy())
-\tcanvas.add_child(back_btn)
+\tvbox.add_child(back_btn)
 
 \t# --- Build Menu ---
 \tvar build_lbl := Label.new()
@@ -526,6 +573,27 @@ func _create_hud() -> void:
 \tGameManager.defeat.connect(func(): _show_result("DEFEAT!"))
 
 
+
+func _add_styled_btn(parent: Node, text: String, callback: Callable) -> void:
+\tvar btn := Button.new()
+\tbtn.text = text
+\tbtn.custom_minimum_size = Vector2(180, 30)
+\tvar sb := StyleBoxFlat.new()
+\tsb.bg_color = Color(0.08, 0.12, 0.22)
+\tsb.border_color = Color(0.25, 0.5, 0.85, 0.5)
+\tsb.set_border_width_all(1)
+\tsb.set_corner_radius_all(4)
+\tbtn.add_theme_stylebox_override("normal", sb)
+\tvar sbh := StyleBoxFlat.new()
+\tsbh.bg_color = Color(0.12, 0.2, 0.35)
+\tsbh.border_color = Color(0.35, 0.65, 1.0, 0.8)
+\tsbh.set_border_width_all(1)
+\tsbh.set_corner_radius_all(4)
+\tbtn.add_theme_stylebox_override("hover", sbh)
+\tbtn.pressed.connect(callback)
+\tparent.add_child(btn)
+
+
 func _show_result(text: String) -> void:
 \tvar lbl = get_node_or_null("HUD/ResultLabel")
 \tif lbl:
@@ -549,6 +617,21 @@ func _train_soldier() -> void:
 \tprint("[PlanetMap] No factory available!")
 
 
+func _draw() -> void:
+\t# Terrain grid
+\tvar gc = Color(0.08, 0.14, 0.22, 0.35)
+\tfor x in range(-200, 1400, 100):
+\t\tdraw_line(Vector2(x, -100), Vector2(x, 900), gc, 1.0)
+\tfor y in range(-100, 900, 100):
+\t\tdraw_line(Vector2(-200, y), Vector2(1400, y), gc, 1.0)
+\t# Mineral deposits
+\tdraw_circle(Vector2(400, 300), 20, Color(0.1, 0.4, 0.2, 0.3))
+\tdraw_circle(Vector2(400, 300), 12, Color(0.15, 0.6, 0.3, 0.25))
+\tdraw_circle(Vector2(650, 500), 16, Color(0.1, 0.2, 0.5, 0.3))
+\tdraw_circle(Vector2(650, 500), 9, Color(0.2, 0.3, 0.7, 0.25))
+\tdraw_circle(Vector2(300, 550), 14, Color(0.4, 0.15, 0.1, 0.3))
+
+
 func _process(_delta: float) -> void:
 \t# Update HUD labels
 \tvar elbl = get_node_or_null("HUD/EnergyLabel")
@@ -560,6 +643,7 @@ func _process(_delta: float) -> void:
 
 \t# Check win/lose
 \t_check_victory_conditions()
+\tqueue_redraw()
 
 
 func _check_victory_conditions() -> void:
@@ -705,10 +789,9 @@ func _screen_to_world(screen_pos: Vector2) -> Vector2:
 def gen_unit_base():
     """UnitBase — base class for all units (movement, health, teams)."""
     return '''## UnitBase
-## Base class for all game units. Provides movement, health, and team info.
+## Base class for all game units. Drawn as glowing circle with health bar.
 extends Node2D
 
-# --------------- Stats ---------------
 @export var max_hp: float = 100.0
 @export var move_speed: float = 150.0
 
@@ -716,44 +799,44 @@ var hp: float = 100.0
 var is_player: bool = true
 var target_position: Vector2 = Vector2.ZERO
 var is_moving: bool = false
-
-# Visual representation
-var sprite: ColorRect = null
-
-
-func _ready() -> void:
-\t_create_visual()
+var unit_radius: float = 16.0
 
 
 func setup(player: bool) -> void:
 \tis_player = player
 \thp = max_hp
 \ttarget_position = position
-\t# Add to appropriate group
 \tif is_player:
 \t\tadd_to_group("player_units")
 \telse:
 \t\tadd_to_group("enemies")
-\t_update_visual_color()
 
 
-# --------------- Visual ---------------
+func _draw() -> void:
+\t# Shadow
+\tdraw_circle(Vector2(2, 2), unit_radius, Color(0, 0, 0, 0.35))
+\t# Body
+\tvar col = Color(0.15, 0.7, 0.95) if is_player else Color(0.95, 0.2, 0.15)
+\tdraw_circle(Vector2.ZERO, unit_radius, col)
+\t# Glow ring
+\tvar rc = Color(0.3, 0.85, 1.0, 0.7) if is_player else Color(1.0, 0.4, 0.3, 0.7)
+\tdraw_arc(Vector2.ZERO, unit_radius + 1.5, 0, TAU, 32, rc, 2.0, true)
+\t# Highlight
+\tdraw_arc(Vector2.ZERO, unit_radius * 0.45, -0.7, 0.7, 10, Color(1, 1, 1, 0.2), 3.0, true)
+\t# HP bar
+\t_draw_hp_bar()
 
-func _create_visual() -> void:
-\t## Create a simple colored rectangle as placeholder visual.
-\tsprite = ColorRect.new()
-\tsprite.size = Vector2(32, 32)
-\tsprite.position = Vector2(-16, -16)  # Center it
-\tsprite.color = Color.CYAN if is_player else Color.RED
-\tadd_child(sprite)
 
+func _draw_hp_bar() -> void:
+\tvar w := 28.0
+\tvar h := 3.0
+\tvar p := Vector2(-w / 2.0, -unit_radius - 8.0)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.05, 0.05, 0.05, 0.9))
+\tvar r := clampf(hp / max_hp, 0.0, 1.0)
+\tvar c := Color(0.2, 0.9, 0.3) if r > 0.6 else (Color(0.95, 0.8, 0.1) if r > 0.3 else Color(0.95, 0.15, 0.1))
+\tdraw_rect(Rect2(p, Vector2(w * r, h)), c)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.5, 0.6, 0.7, 0.3), false)
 
-func _update_visual_color() -> void:
-\tif sprite:
-\t\tsprite.color = Color.CYAN if is_player else Color.RED
-
-
-# --------------- Movement ---------------
 
 func move_to(target: Vector2) -> void:
 \ttarget_position = target
@@ -768,29 +851,23 @@ func _process(delta: float) -> void:
 \t\t\tis_moving = false
 \t\telse:
 \t\t\tposition += direction * move_speed * delta
+\tqueue_redraw()
 
-
-# --------------- Health ---------------
 
 func take_damage(amount: float) -> void:
 \thp -= amount
 \tif hp <= 0.0:
-\t\t_die()
-
-
-func _die() -> void:
-\tprint("[Unit] ", name, " destroyed.")
-\tqueue_free()
+\t\tprint("[Unit] ", name, " destroyed.")
+\t\tqueue_free()
 '''
 
 
 def gen_builder_unit():
     """BuilderUnit — can build PowerPlant and Factory structures."""
     return '''## BuilderUnit
-## Extends UnitBase. Can construct PowerPlant and Factory structures.
+## Construction unit. Green circle with cross icon.
 extends Node2D
 
-# --------------- Stats ---------------
 @export var max_hp: float = 80.0
 @export var move_speed: float = 120.0
 
@@ -798,19 +875,12 @@ var hp: float = 80.0
 var is_player: bool = true
 var target_position: Vector2 = Vector2.ZERO
 var is_moving: bool = false
+var unit_radius: float = 18.0
 
-# Build costs
 const BUILD_COSTS := {
 \t"power_plant": 50.0,
 \t"factory": 100.0,
 }
-
-# Visual
-var sprite: ColorRect = null
-
-
-func _ready() -> void:
-\t_create_visual()
 
 
 func setup(player: bool) -> void:
@@ -821,30 +891,31 @@ func setup(player: bool) -> void:
 \t\tadd_to_group("player_units")
 \telse:
 \t\tadd_to_group("enemies")
-\t_update_visual_color()
 
 
-# --------------- Visual ---------------
-
-func _create_visual() -> void:
-\tsprite = ColorRect.new()
-\tsprite.size = Vector2(36, 36)
-\tsprite.position = Vector2(-18, -18)
-\tsprite.color = Color(0.2, 1.0, 0.5) if is_player else Color.RED
-\tadd_child(sprite)
-\t# Small "B" label
-\tvar lbl := Label.new()
-\tlbl.text = "B"
-\tlbl.position = Vector2(-5, -8)
-\tadd_child(lbl)
+func _draw() -> void:
+\tdraw_circle(Vector2(2, 2), unit_radius, Color(0, 0, 0, 0.35))
+\tvar col = Color(0.1, 0.85, 0.45) if is_player else Color(0.85, 0.2, 0.1)
+\tdraw_circle(Vector2.ZERO, unit_radius, col)
+\tvar rc = Color(0.2, 1.0, 0.55, 0.7) if is_player else Color(1.0, 0.35, 0.2, 0.7)
+\tdraw_arc(Vector2.ZERO, unit_radius + 1.5, 0, TAU, 32, rc, 2.0, true)
+\t# Wrench cross icon
+\tdraw_line(Vector2(-6, -6), Vector2(6, 6), Color(1, 1, 1, 0.85), 2.5, true)
+\tdraw_line(Vector2(-6, 6), Vector2(6, -6), Color(1, 1, 1, 0.85), 2.5, true)
+\tdraw_circle(Vector2.ZERO, 3.0, Color(1, 1, 1, 0.4))
+\t_draw_hp_bar()
 
 
-func _update_visual_color() -> void:
-\tif sprite:
-\t\tsprite.color = Color(0.2, 1.0, 0.5) if is_player else Color.RED
+func _draw_hp_bar() -> void:
+\tvar w := 32.0
+\tvar h := 3.0
+\tvar p := Vector2(-w / 2.0, -unit_radius - 8.0)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.05, 0.05, 0.05, 0.9))
+\tvar r := clampf(hp / max_hp, 0.0, 1.0)
+\tvar c := Color(0.2, 0.9, 0.3) if r > 0.6 else (Color(0.95, 0.8, 0.1) if r > 0.3 else Color(0.95, 0.15, 0.1))
+\tdraw_rect(Rect2(p, Vector2(w * r, h)), c)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.5, 0.6, 0.7, 0.3), false)
 
-
-# --------------- Movement ---------------
 
 func move_to(target: Vector2) -> void:
 \ttarget_position = target
@@ -859,28 +930,23 @@ func _process(delta: float) -> void:
 \t\t\tis_moving = false
 \t\telse:
 \t\t\tposition += direction * move_speed * delta
+\tqueue_redraw()
 
-
-# --------------- Building ---------------
 
 func request_build(build_type: String) -> void:
-\t## Ask the RTSController to enter build-placement mode.
 \tvar rts = get_node_or_null("/root/PlanetMap/RTSController")
 \tif rts:
 \t\trts.call("start_build", build_type)
 
 
 func build_structure(build_type: String, world_pos: Vector2) -> void:
-\t## Actually place a structure at world_pos.
 \tvar cost: float = BUILD_COSTS.get(build_type, 999.0)
 \tif EconomyManager.energy < cost:
 \t\tprint("[Builder] Not enough energy! Need ", cost)
 \t\treturn
 \tEconomyManager.spend_energy(cost)
-
 \tvar node := Node2D.new()
 \tnode.position = world_pos
-
 \tmatch build_type:
 \t\t"power_plant":
 \t\t\tnode.name = "PowerPlant"
@@ -891,13 +957,10 @@ func build_structure(build_type: String, world_pos: Vector2) -> void:
 \t\t_:
 \t\t\tnode.name = "Structure"
 \t\t\tnode.set_script(load("res://scripts/structures/structure_base.gd"))
-
 \tget_parent().add_child(node)
 \tnode.call("setup", node.name, 300, is_player)
 \tprint("[Builder] Built ", build_type, " at ", world_pos)
 
-
-# --------------- Health ---------------
 
 func take_damage(amount: float) -> void:
 \thp -= amount
@@ -910,10 +973,9 @@ func take_damage(amount: float) -> void:
 def gen_soldier_unit():
     """SoldierUnit — can move and attack enemy units/structures."""
     return '''## SoldierUnit
-## Extends UnitBase. A combat unit that can move and attack.
+## Combat unit. Blue circle with sword icon.
 extends Node2D
 
-# --------------- Stats ---------------
 @export var max_hp: float = 120.0
 @export var move_speed: float = 160.0
 @export var attack_damage: float = 15.0
@@ -924,17 +986,10 @@ var hp: float = 120.0
 var is_player: bool = true
 var target_position: Vector2 = Vector2.ZERO
 var is_moving: bool = false
+var unit_radius: float = 15.0
 
-# Combat state
 var attack_target_node: Node2D = null
 var attack_timer: float = 0.0
-
-# Visual
-var sprite: ColorRect = null
-
-
-func _ready() -> void:
-\t_create_visual()
 
 
 func setup(player: bool) -> void:
@@ -945,53 +1000,49 @@ func setup(player: bool) -> void:
 \t\tadd_to_group("player_units")
 \telse:
 \t\tadd_to_group("enemies")
-\t_update_visual_color()
 
 
-# --------------- Visual ---------------
-
-func _create_visual() -> void:
-\tsprite = ColorRect.new()
-\tsprite.size = Vector2(30, 30)
-\tsprite.position = Vector2(-15, -15)
-\tsprite.color = Color(0.3, 0.5, 1.0) if is_player else Color(1.0, 0.2, 0.2)
-\tadd_child(sprite)
-\tvar lbl := Label.new()
-\tlbl.text = "S"
-\tlbl.position = Vector2(-5, -8)
-\tadd_child(lbl)
+func _draw() -> void:
+\tdraw_circle(Vector2(2, 2), unit_radius, Color(0, 0, 0, 0.35))
+\tvar col = Color(0.2, 0.45, 1.0) if is_player else Color(1.0, 0.15, 0.15)
+\tdraw_circle(Vector2.ZERO, unit_radius, col)
+\tvar rc = Color(0.35, 0.55, 1.0, 0.7) if is_player else Color(1.0, 0.3, 0.25, 0.7)
+\tdraw_arc(Vector2.ZERO, unit_radius + 1.5, 0, TAU, 32, rc, 2.0, true)
+\t# Sword icon
+\tdraw_line(Vector2(0, -8), Vector2(0, 8), Color(1, 1, 1, 0.9), 2.5, true)
+\tdraw_line(Vector2(-5, -3), Vector2(5, -3), Color(1, 1, 1, 0.9), 2.0, true)
+\t_draw_hp_bar()
 
 
-func _update_visual_color() -> void:
-\tif sprite:
-\t\tsprite.color = Color(0.3, 0.5, 1.0) if is_player else Color(1.0, 0.2, 0.2)
+func _draw_hp_bar() -> void:
+\tvar w := 28.0
+\tvar h := 3.0
+\tvar p := Vector2(-w / 2.0, -unit_radius - 8.0)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.05, 0.05, 0.05, 0.9))
+\tvar r := clampf(hp / max_hp, 0.0, 1.0)
+\tvar c := Color(0.2, 0.9, 0.3) if r > 0.6 else (Color(0.95, 0.8, 0.1) if r > 0.3 else Color(0.95, 0.15, 0.1))
+\tdraw_rect(Rect2(p, Vector2(w * r, h)), c)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.5, 0.6, 0.7, 0.3), false)
 
-
-# --------------- Movement ---------------
 
 func move_to(target: Vector2) -> void:
 \ttarget_position = target
 \tis_moving = true
-\tattack_target_node = null  # Cancel attack when given move order
+\tattack_target_node = null
 
 
 func _process(delta: float) -> void:
 \tattack_timer -= delta
-
-\t# --- Attack logic ---
 \tif attack_target_node and is_instance_valid(attack_target_node):
 \t\tvar dist = position.distance_to(attack_target_node.global_position)
 \t\tif dist <= attack_range:
 \t\t\tis_moving = false
 \t\t\t_do_attack()
 \t\telse:
-\t\t\t# Move toward target
 \t\t\ttarget_position = attack_target_node.global_position
 \t\t\tis_moving = true
 \telse:
 \t\tattack_target_node = null
-
-\t# --- Movement ---
 \tif is_moving:
 \t\tvar direction = (target_position - position).normalized()
 \t\tvar distance = position.distance_to(target_position)
@@ -999,9 +1050,8 @@ func _process(delta: float) -> void:
 \t\t\tis_moving = false
 \t\telse:
 \t\t\tposition += direction * move_speed * delta
+\tqueue_redraw()
 
-
-# --------------- Combat ---------------
 
 func attack_target(target: Node2D) -> void:
 \tattack_target_node = target
@@ -1016,8 +1066,6 @@ func _do_attack() -> void:
 \tif attack_target_node.has_method("take_damage"):
 \t\tattack_target_node.call("take_damage", attack_damage)
 
-
-# --------------- Health ---------------
 
 func take_damage(amount: float) -> void:
 \thp -= amount
@@ -1034,21 +1082,14 @@ func take_damage(amount: float) -> void:
 def gen_structure_base():
     """StructureBase — base class for all buildings."""
     return '''## StructureBase
-## Base class for all structures/buildings.
+## Base class for buildings. Drawn as bordered rectangle with HP bar.
 extends Node2D
 
-# --------------- Stats ---------------
 var structure_name: String = "Structure"
 var max_hp: float = 500.0
 var hp: float = 500.0
 var is_player: bool = true
-
-# Visual
-var sprite: ColorRect = null
-
-
-func _ready() -> void:
-\t_create_visual()
+var struct_size: Vector2 = Vector2(52, 52)
 
 
 func setup(sname: String, health: float, player: bool) -> void:
@@ -1062,29 +1103,42 @@ func setup(sname: String, health: float, player: bool) -> void:
 \telse:
 \t\tadd_to_group("enemies")
 \t\tadd_to_group("enemy_structures")
-\t_update_visual()
 
 
-# --------------- Visual ---------------
+func _draw() -> void:
+\tvar half = struct_size / 2.0
+\t# Shadow
+\tdraw_rect(Rect2(-half + Vector2(3, 3), struct_size), Color(0, 0, 0, 0.35))
+\t# Body
+\tvar col = Color(0.15, 0.5, 0.7) if is_player else Color(0.75, 0.15, 0.15)
+\tdraw_rect(Rect2(-half, struct_size), col)
+\t# Border
+\tvar bc = Color(0.3, 0.7, 0.9, 0.8) if is_player else Color(1.0, 0.35, 0.25, 0.8)
+\tdraw_rect(Rect2(-half, struct_size), bc, false, 2.0)
+\t# Window details
+\tvar wc = Color(0.7, 0.85, 1.0, 0.5)
+\tdraw_rect(Rect2(Vector2(-half.x + 5, -half.y + 5), Vector2(10, 8)), wc)
+\tdraw_rect(Rect2(Vector2(half.x - 15, -half.y + 5), Vector2(10, 8)), wc)
+\t# Name label
+\tdraw_string(ThemeDB.fallback_font, Vector2(-half.x, -half.y - 6), structure_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.8, 0.9, 1.0, 0.9))
+\t# HP bar
+\t_draw_hp_bar()
 
-func _create_visual() -> void:
-\tsprite = ColorRect.new()
-\tsprite.size = Vector2(64, 64)
-\tsprite.position = Vector2(-32, -32)
-\tsprite.color = Color(0.2, 0.6, 0.8) if is_player else Color(0.8, 0.2, 0.2)
-\tadd_child(sprite)
-\tvar lbl := Label.new()
-\tlbl.text = structure_name
-\tlbl.position = Vector2(-32, -42)
-\tadd_child(lbl)
+
+func _draw_hp_bar() -> void:
+\tvar w := struct_size.x + 4.0
+\tvar h := 4.0
+\tvar p := Vector2(-w / 2.0, struct_size.y / 2.0 + 4.0)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.05, 0.05, 0.05, 0.9))
+\tvar r := clampf(hp / max_hp, 0.0, 1.0)
+\tvar c := Color(0.2, 0.9, 0.3) if r > 0.6 else (Color(0.95, 0.8, 0.1) if r > 0.3 else Color(0.95, 0.15, 0.1))
+\tdraw_rect(Rect2(p, Vector2(w * r, h)), c)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.5, 0.6, 0.7, 0.3), false)
 
 
-func _update_visual() -> void:
-\tif sprite:
-\t\tsprite.color = Color(0.2, 0.6, 0.8) if is_player else Color(0.8, 0.2, 0.2)
+func _process(_d: float) -> void:
+\tqueue_redraw()
 
-
-# --------------- Health ---------------
 
 func take_damage(amount: float) -> void:
 \thp -= amount
@@ -1097,23 +1151,18 @@ func take_damage(amount: float) -> void:
 def gen_power_plant():
     """PowerPlant — generates energy over time."""
     return '''## PowerPlant
-## A structure that generates energy over time for the player.
+## Energy generator. Yellow/gold rectangle with lightning icon.
 extends Node2D
 
-# --------------- Stats ---------------
 var structure_name: String = "PowerPlant"
 var max_hp: float = 300.0
 var hp: float = 300.0
 var is_player: bool = true
+var struct_size: Vector2 = Vector2(48, 48)
 
 @export var energy_per_second: float = 5.0
 
-# Visual
-var sprite: ColorRect = null
-
-
-func _ready() -> void:
-\t_create_visual()
+var pulse_time: float = 0.0
 
 
 func setup(sname: String, health: float, player: bool) -> void:
@@ -1127,29 +1176,42 @@ func setup(sname: String, health: float, player: bool) -> void:
 \telse:
 \t\tadd_to_group("enemies")
 \t\tadd_to_group("enemy_structures")
-\t_update_visual()
 
 
-# --------------- Visual ---------------
+func _draw() -> void:
+\tvar half = struct_size / 2.0
+\tdraw_rect(Rect2(-half + Vector2(3, 3), struct_size), Color(0, 0, 0, 0.35))
+\t# Body - golden
+\tvar col = Color(0.9, 0.8, 0.15) if is_player else Color(0.75, 0.35, 0.05)
+\tdraw_rect(Rect2(-half, struct_size), col)
+\t# Pulsing border
+\tvar glow = 0.5 + 0.3 * sin(pulse_time * 3.0)
+\tvar bc = Color(1.0, 0.95, 0.3, glow) if is_player else Color(0.9, 0.4, 0.1, 0.6)
+\tdraw_rect(Rect2(-half, struct_size), bc, false, 2.5)
+\t# Lightning bolt icon
+\tvar lc = Color(1, 1, 1, 0.9)
+\tdraw_line(Vector2(-2, -14), Vector2(4, -2), lc, 2.5, true)
+\tdraw_line(Vector2(4, -2), Vector2(-2, 0), lc, 2.5, true)
+\tdraw_line(Vector2(-2, 0), Vector2(4, 12), lc, 2.5, true)
+\t# Label
+\tdraw_string(ThemeDB.fallback_font, Vector2(-half.x, -half.y - 6), "PWR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 0.95, 0.5, 0.9))
+\t_draw_hp_bar()
 
-func _create_visual() -> void:
-\tsprite = ColorRect.new()
-\tsprite.size = Vector2(56, 56)
-\tsprite.position = Vector2(-28, -28)
-\tsprite.color = Color(1.0, 1.0, 0.2) if is_player else Color(0.8, 0.4, 0.0)
-\tadd_child(sprite)
-\tvar lbl := Label.new()
-\tlbl.text = "PWR"
-\tlbl.position = Vector2(-20, -38)
-\tadd_child(lbl)
+
+func _draw_hp_bar() -> void:
+\tvar w := struct_size.x + 4.0
+\tvar h := 4.0
+\tvar p := Vector2(-w / 2.0, struct_size.y / 2.0 + 4.0)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.05, 0.05, 0.05, 0.9))
+\tvar r := clampf(hp / max_hp, 0.0, 1.0)
+\tvar c := Color(0.2, 0.9, 0.3) if r > 0.6 else (Color(0.95, 0.8, 0.1) if r > 0.3 else Color(0.95, 0.15, 0.1))
+\tdraw_rect(Rect2(p, Vector2(w * r, h)), c)
 
 
-func _update_visual() -> void:
-\tif sprite:
-\t\tsprite.color = Color(1.0, 1.0, 0.2) if is_player else Color(0.8, 0.4, 0.0)
+func _process(delta: float) -> void:
+\tpulse_time += delta
+\tqueue_redraw()
 
-
-# --------------- Health ---------------
 
 func take_damage(amount: float) -> void:
 \thp -= amount
@@ -1164,28 +1226,21 @@ func take_damage(amount: float) -> void:
 def gen_factory():
     """Factory — produces Soldier units; consumes energy."""
     return '''## Factory
-## A structure that produces Soldier units. Costs energy per unit.
+## Unit producer. Purple rectangle with gear icon and progress bar.
 extends Node2D
 
-# --------------- Stats ---------------
 var structure_name: String = "Factory"
 var max_hp: float = 400.0
 var hp: float = 400.0
 var is_player: bool = true
+var struct_size: Vector2 = Vector2(56, 56)
 
 @export var soldier_cost: float = 30.0
 @export var production_time: float = 5.0
 
 var production_timer: float = 0.0
 var is_producing: bool = false
-
-# Visual
-var sprite: ColorRect = null
-var produce_btn: Button = null
-
-
-func _ready() -> void:
-\t_create_visual()
+var gear_angle: float = 0.0
 
 
 func setup(sname: String, health: float, player: bool) -> void:
@@ -1198,37 +1253,45 @@ func setup(sname: String, health: float, player: bool) -> void:
 \telse:
 \t\tadd_to_group("enemies")
 \t\tadd_to_group("enemy_structures")
-\t_update_visual()
 
 
-# --------------- Visual ---------------
+func _draw() -> void:
+\tvar half = struct_size / 2.0
+\tdraw_rect(Rect2(-half + Vector2(3, 3), struct_size), Color(0, 0, 0, 0.35))
+\tvar col = Color(0.45, 0.25, 0.75) if is_player else Color(0.6, 0.1, 0.1)
+\tdraw_rect(Rect2(-half, struct_size), col)
+\tvar bc = Color(0.6, 0.4, 0.95, 0.7) if is_player else Color(0.8, 0.2, 0.15, 0.7)
+\tdraw_rect(Rect2(-half, struct_size), bc, false, 2.0)
+\t# Gear icon (rotating when producing)
+\tvar gc = Color(1, 1, 1, 0.8)
+\tfor i in range(4):
+\t\tvar a = gear_angle + i * PI / 2.0
+\t\tvar from = Vector2(cos(a), sin(a)) * 4.0
+\t\tvar to = Vector2(cos(a), sin(a)) * 12.0
+\t\tdraw_line(from, to, gc, 3.0, true)
+\tdraw_arc(Vector2.ZERO, 7.0, 0, TAU, 16, gc, 2.0, true)
+\tdraw_circle(Vector2.ZERO, 3.0, Color(0.3, 0.2, 0.5))
+\t# Label
+\tdraw_string(ThemeDB.fallback_font, Vector2(-half.x, -half.y - 6), "FAC", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.75, 0.6, 1.0, 0.9))
+\t# Production progress
+\tif is_producing:
+\t\tvar pw := struct_size.x
+\t\tvar pp := Vector2(-pw / 2.0, half.y + 10.0)
+\t\tdraw_rect(Rect2(pp, Vector2(pw, 5)), Color(0.1, 0.1, 0.1, 0.8))
+\t\tvar prog = 1.0 - (production_timer / production_time)
+\t\tdraw_rect(Rect2(pp, Vector2(pw * prog, 5)), Color(0.4, 0.8, 1.0))
+\t_draw_hp_bar()
 
-func _create_visual() -> void:
-\tsprite = ColorRect.new()
-\tsprite.size = Vector2(68, 68)
-\tsprite.position = Vector2(-34, -34)
-\tsprite.color = Color(0.5, 0.3, 0.8) if is_player else Color(0.6, 0.1, 0.1)
-\tadd_child(sprite)
-\tvar lbl := Label.new()
-\tlbl.text = "FAC"
-\tlbl.position = Vector2(-20, -44)
-\tadd_child(lbl)
 
-\t# Produce button (only for player factories)
-\tif is_player:
-\t\tproduce_btn = Button.new()
-\t\tproduce_btn.text = "Train Soldier"
-\t\tproduce_btn.position = Vector2(-40, 42)
-\t\tproduce_btn.pressed.connect(_on_produce_pressed)
-\t\tadd_child(produce_btn)
+func _draw_hp_bar() -> void:
+\tvar w := struct_size.x + 4.0
+\tvar h := 4.0
+\tvar p := Vector2(-w / 2.0, struct_size.y / 2.0 + 4.0)
+\tdraw_rect(Rect2(p, Vector2(w, h)), Color(0.05, 0.05, 0.05, 0.9))
+\tvar r := clampf(hp / max_hp, 0.0, 1.0)
+\tvar c := Color(0.2, 0.9, 0.3) if r > 0.6 else (Color(0.95, 0.8, 0.1) if r > 0.3 else Color(0.95, 0.15, 0.1))
+\tdraw_rect(Rect2(p, Vector2(w * r, h)), c)
 
-
-func _update_visual() -> void:
-\tif sprite:
-\t\tsprite.color = Color(0.5, 0.3, 0.8) if is_player else Color(0.6, 0.1, 0.1)
-
-
-# --------------- Production ---------------
 
 func _on_produce_pressed() -> void:
 \tif is_producing:
@@ -1244,7 +1307,6 @@ func _on_produce_pressed() -> void:
 
 
 func produce_soldier_ai() -> void:
-\t## Called by EnemyAI to produce soldiers without button.
 \tif is_producing:
 \t\treturn
 \tis_producing = true
@@ -1252,12 +1314,13 @@ func produce_soldier_ai() -> void:
 
 
 func _process(delta: float) -> void:
-\tif not is_producing:
-\t\treturn
-\tproduction_timer -= delta
-\tif production_timer <= 0.0:
-\t\tis_producing = false
-\t\t_spawn_soldier()
+\tif is_producing:
+\t\tgear_angle += delta * 3.0
+\t\tproduction_timer -= delta
+\t\tif production_timer <= 0.0:
+\t\t\tis_producing = false
+\t\t\t_spawn_soldier()
+\tqueue_redraw()
 
 
 func _spawn_soldier() -> void:
@@ -1267,16 +1330,12 @@ func _spawn_soldier() -> void:
 \tsoldier.set_script(load("res://scripts/units/soldier_unit.gd"))
 \tget_parent().add_child(soldier)
 \tsoldier.call("setup", is_player)
-
-\t# Register with RTS controller if player
 \tif is_player:
 \t\tvar rts = get_node_or_null("/root/PlanetMap/RTSController")
 \t\tif rts:
 \t\t\trts.call("register_unit", soldier)
 \tprint("[Factory] Soldier produced!")
 
-
-# --------------- Health ---------------
 
 func take_damage(amount: float) -> void:
 \thp -= amount
