@@ -560,30 +560,6 @@ func _create_hud() -> void:
 
 \t_add_styled_btn(main_vbox, "Stargate (Galaxy)", func(): GameManager.return_to_galaxy())
 
-\t# --- Build Menu ---
-\tvar build_lbl := Label.new()
-\tbuild_lbl.text = "== BUILD =="
-\tbuild_lbl.position = Vector2(10, 110)
-\tcanvas.add_child(build_lbl)
-
-\tvar pp_btn := Button.new()
-\tpp_btn.text = "Power Plant (50E)"
-\tpp_btn.position = Vector2(10, 135)
-\tpp_btn.pressed.connect(func(): _start_build("power_plant"))
-\tcanvas.add_child(pp_btn)
-
-\tvar fac_btn := Button.new()
-\tfac_btn.text = "Factory (100E)"
-\tfac_btn.position = Vector2(10, 170)
-\tfac_btn.pressed.connect(func(): _start_build("factory"))
-\tcanvas.add_child(fac_btn)
-
-\tvar sol_btn := Button.new()
-\tsol_btn.text = "Train Soldier (30E)"
-\tsol_btn.position = Vector2(10, 205)
-\tsol_btn.pressed.connect(func(): _train_soldier())
-\tcanvas.add_child(sol_btn)
-
 \t# Victory / Defeat label (hidden by default)
 \tvar result_lbl := Label.new()
 \tresult_lbl.name = "ResultLabel"
