@@ -378,9 +378,19 @@ func _ready() -> void:
 \tplanet_id = GameManager.current_planet_id
 \tprint("[PlanetMap] Loaded planet ", planet_id)
 
+\t# --- Fullscreen background (CanvasLayer behind everything) ---
+\tvar bg_layer = CanvasLayer.new()
+\tbg_layer.layer = -10
+\tadd_child(bg_layer)
+\tvar bg_rect = ColorRect.new()
+\tbg_rect.color = Color(0.04, 0.06, 0.1, 1)
+\tbg_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+\tbg_layer.add_child(bg_rect)
+
 \t# --- Camera ---
 \tvar cam = Camera2D.new()
 \tcam.set_script(load("res://scripts/camera/camera_controller.gd"))
+\tcam.position = Vector2(550, 400)
 \tcam.make_current()
 \tadd_child(cam)
 
@@ -481,6 +491,30 @@ func _create_hud() -> void:
 \tback_btn.pressed.connect(func(): GameManager.return_to_galaxy())
 \tcanvas.add_child(back_btn)
 
+\t# --- Build Menu ---
+\tvar build_lbl := Label.new()
+\tbuild_lbl.text = "== BUILD =="
+\tbuild_lbl.position = Vector2(10, 110)
+\tcanvas.add_child(build_lbl)
+
+\tvar pp_btn := Button.new()
+\tpp_btn.text = "Power Plant (50E)"
+\tpp_btn.position = Vector2(10, 135)
+\tpp_btn.pressed.connect(func(): _start_build("power_plant"))
+\tcanvas.add_child(pp_btn)
+
+\tvar fac_btn := Button.new()
+\tfac_btn.text = "Factory (100E)"
+\tfac_btn.position = Vector2(10, 170)
+\tfac_btn.pressed.connect(func(): _start_build("factory"))
+\tcanvas.add_child(fac_btn)
+
+\tvar sol_btn := Button.new()
+\tsol_btn.text = "Train Soldier (30E)"
+\tsol_btn.position = Vector2(10, 205)
+\tsol_btn.pressed.connect(func(): _train_soldier())
+\tcanvas.add_child(sol_btn)
+
 \t# Victory / Defeat label (hidden by default)
 \tvar result_lbl := Label.new()
 \tresult_lbl.name = "ResultLabel"
@@ -497,6 +531,22 @@ func _show_result(text: String) -> void:
 \tif lbl:
 \t\tlbl.text = text
 \t\tlbl.visible = true
+
+
+func _start_build(type: String) -> void:
+\tvar rts = get_node_or_null("RTSController")
+\tif rts:
+\t\trts.call("start_build", type)
+\t\tprint("[PlanetMap] Build mode: ", type)
+
+
+func _train_soldier() -> void:
+\tvar factories = get_tree().get_nodes_in_group("player_structures")
+\tfor f in factories:
+\t\tif f.name.begins_with("Factory") and f.has_method("_on_produce_pressed"):
+\t\t\tf.call("_on_produce_pressed")
+\t\t\treturn
+\tprint("[PlanetMap] No factory available!")
 
 
 func _process(_delta: float) -> void:
@@ -568,7 +618,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _try_select(screen_pos: Vector2) -> void:
 \tvar world_pos = _screen_to_world(screen_pos)
 \tvar best: Node2D = null
-\tvar best_dist: float = 40.0  # selection radius in world pixels
+\tvar best_dist: float = 60.0  # selection radius in world pixels
 
 \tfor unit in units:
 \t\tif not is_instance_valid(unit):
@@ -692,8 +742,8 @@ func setup(player: bool) -> void:
 func _create_visual() -> void:
 \t## Create a simple colored rectangle as placeholder visual.
 \tsprite = ColorRect.new()
-\tsprite.size = Vector2(20, 20)
-\tsprite.position = Vector2(-10, -10)  # Center it
+\tsprite.size = Vector2(32, 32)
+\tsprite.position = Vector2(-16, -16)  # Center it
 \tsprite.color = Color.CYAN if is_player else Color.RED
 \tadd_child(sprite)
 
@@ -778,8 +828,8 @@ func setup(player: bool) -> void:
 
 func _create_visual() -> void:
 \tsprite = ColorRect.new()
-\tsprite.size = Vector2(22, 22)
-\tsprite.position = Vector2(-11, -11)
+\tsprite.size = Vector2(36, 36)
+\tsprite.position = Vector2(-18, -18)
 \tsprite.color = Color(0.2, 1.0, 0.5) if is_player else Color.RED
 \tadd_child(sprite)
 \t# Small "B" label
@@ -902,8 +952,8 @@ func setup(player: bool) -> void:
 
 func _create_visual() -> void:
 \tsprite = ColorRect.new()
-\tsprite.size = Vector2(18, 18)
-\tsprite.position = Vector2(-9, -9)
+\tsprite.size = Vector2(30, 30)
+\tsprite.position = Vector2(-15, -15)
 \tsprite.color = Color(0.3, 0.5, 1.0) if is_player else Color(1.0, 0.2, 0.2)
 \tadd_child(sprite)
 \tvar lbl := Label.new()
@@ -1019,13 +1069,13 @@ func setup(sname: String, health: float, player: bool) -> void:
 
 func _create_visual() -> void:
 \tsprite = ColorRect.new()
-\tsprite.size = Vector2(40, 40)
-\tsprite.position = Vector2(-20, -20)
+\tsprite.size = Vector2(64, 64)
+\tsprite.position = Vector2(-32, -32)
 \tsprite.color = Color(0.2, 0.6, 0.8) if is_player else Color(0.8, 0.2, 0.2)
 \tadd_child(sprite)
 \tvar lbl := Label.new()
 \tlbl.text = structure_name
-\tlbl.position = Vector2(-20, -30)
+\tlbl.position = Vector2(-32, -42)
 \tadd_child(lbl)
 
 
@@ -1084,13 +1134,13 @@ func setup(sname: String, health: float, player: bool) -> void:
 
 func _create_visual() -> void:
 \tsprite = ColorRect.new()
-\tsprite.size = Vector2(36, 36)
-\tsprite.position = Vector2(-18, -18)
+\tsprite.size = Vector2(56, 56)
+\tsprite.position = Vector2(-28, -28)
 \tsprite.color = Color(1.0, 1.0, 0.2) if is_player else Color(0.8, 0.4, 0.0)
 \tadd_child(sprite)
 \tvar lbl := Label.new()
 \tlbl.text = "PWR"
-\tlbl.position = Vector2(-14, -28)
+\tlbl.position = Vector2(-20, -38)
 \tadd_child(lbl)
 
 
@@ -1155,20 +1205,20 @@ func setup(sname: String, health: float, player: bool) -> void:
 
 func _create_visual() -> void:
 \tsprite = ColorRect.new()
-\tsprite.size = Vector2(44, 44)
-\tsprite.position = Vector2(-22, -22)
+\tsprite.size = Vector2(68, 68)
+\tsprite.position = Vector2(-34, -34)
 \tsprite.color = Color(0.5, 0.3, 0.8) if is_player else Color(0.6, 0.1, 0.1)
 \tadd_child(sprite)
 \tvar lbl := Label.new()
 \tlbl.text = "FAC"
-\tlbl.position = Vector2(-14, -32)
+\tlbl.position = Vector2(-20, -44)
 \tadd_child(lbl)
 
 \t# Produce button (only for player factories)
 \tif is_player:
 \t\tproduce_btn = Button.new()
 \t\tproduce_btn.text = "Train Soldier"
-\t\tproduce_btn.position = Vector2(-40, 30)
+\t\tproduce_btn.position = Vector2(-40, 42)
 \t\tproduce_btn.pressed.connect(_on_produce_pressed)
 \t\tadd_child(produce_btn)
 

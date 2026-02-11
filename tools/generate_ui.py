@@ -146,10 +146,6 @@ def gen_planet_map_scene():
 [node name="PlanetMap" type="Node2D"]
 script = ExtResource("1")
 
-[node name="Background" type="ColorRect" parent="."]
-offset_right = 1280.0
-offset_bottom = 720.0
-color = Color(0.04, 0.06, 0.1, 1)
 '''
 
 
