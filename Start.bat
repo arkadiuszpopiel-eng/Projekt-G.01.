@@ -183,15 +183,33 @@ echo   GATE DOMINION - Launching...
 echo ============================================================
 echo.
 
-"%GODOT_EXE%" --path "%PROJECT_DIR%" 2>nul
-if errorlevel 1 (
-    echo   Trying alternative launch...
-    "%GODOT_EXE%" --main-pack "%PROJECT_DIR%" 2>nul
+echo   Godot: %GODOT_EXE%
+echo   Project: %PROJECT_DIR%
+echo.
+if not exist "%GODOT_EXE%" (
+    echo   ERROR: Godot engine not found at: %GODOT_EXE%
+    echo   Please download Godot 4.2.2 manually and place it in the engine\ folder.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo   Starting Godot Engine...
+echo.
+"%GODOT_EXE%" --path "%PROJECT_DIR%"
+set GODOT_EXIT=%errorlevel%
+echo.
+echo   Godot exited with code: %GODOT_EXIT%
+
+if %GODOT_EXIT% neq 0 (
+    echo   Godot returned an error. Trying alternative launch...
+    "%GODOT_EXE%" --main-pack "%PROJECT_DIR%"
 )
 
 echo.
 echo ============================================================
 echo   GATE DOMINION - Session ended.
+echo   Press any key to close this window.
 echo ============================================================
 pause
 
