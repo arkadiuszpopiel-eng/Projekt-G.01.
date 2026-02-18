@@ -20,6 +20,13 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Data (user-generated)
+data/conversations/
+data/documents/
+data/uploads/
+data/templates.json
+data/rag_index.json
+
 # Generated launcher
 NeuroForge.bat
 neurostudio.sh

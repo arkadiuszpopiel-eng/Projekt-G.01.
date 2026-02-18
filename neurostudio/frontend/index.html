@@ -24,6 +24,14 @@
                 <span id="status-text">Brak modelu</span>
             </div>
 
+            <!-- Conversation History -->
+            <div class="sidebar-section">
+                <h3 class="section-toggle" data-target="conversation-list">Historia <span class="toggle-arrow">&#9660;</span></h3>
+                <div id="conversation-list" class="section-content conversation-list">
+                    <div class="conversation-list-empty">Brak zapisanych rozmow</div>
+                </div>
+            </div>
+
             <!-- Model Selection -->
             <div class="sidebar-section">
                 <h3>Model</h3>
@@ -70,10 +78,22 @@
                 </div>
             </div>
 
+            <!-- Documents (RAG) -->
+            <div class="sidebar-section collapsible">
+                <h3 class="section-toggle" data-target="documents-panel">Dokumenty (RAG) <span class="toggle-arrow">&#9660;</span></h3>
+                <div id="documents-panel" class="section-content">
+                    <div class="doc-upload-area">
+                        <input type="file" id="doc-file-input" class="hidden" accept=".txt,.md,.py,.js,.csv,.json,.xml,.html,.log,.cfg,.ini,.yaml,.yml">
+                        <button id="btn-upload-doc" class="btn btn-sm btn-primary" style="width:100%">&#128196; Zaladuj dokument</button>
+                    </div>
+                    <div id="documents-list" class="documents-list"></div>
+                </div>
+            </div>
+
             <!-- System Info -->
             <div class="sidebar-section">
                 <div id="system-info" class="system-info">
-                    <small>NeuroForge v0.1.0</small>
+                    <small>NeuroForge v0.2.0</small>
                 </div>
             </div>
         </aside>
@@ -83,6 +103,68 @@
 
         <!-- Main Chat Area -->
         <main id="main" class="main">
+            <!-- Top bar with templates and monitor -->
+            <div id="top-bar" class="top-bar">
+                <div class="top-bar-left">
+                    <button id="btn-templates" class="btn btn-sm btn-ghost" title="Szablony">&#9889; Szablony</button>
+                    <button id="btn-upload-file" class="btn btn-sm btn-ghost" title="Zalacz plik">&#128206; Plik</button>
+                </div>
+                <div class="top-bar-right">
+                    <button id="btn-monitor" class="btn btn-sm btn-ghost" title="Monitor systemu">&#128200; Monitor</button>
+                    <div id="mini-stats" class="mini-stats">
+                        <span id="mini-cpu" class="mini-stat" title="CPU">--</span>
+                        <span id="mini-ram" class="mini-stat" title="RAM">--</span>
+                        <span id="mini-gpu" class="mini-stat" title="GPU">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Templates Panel (hidden by default) -->
+            <div id="templates-panel" class="templates-panel hidden">
+                <div class="templates-header">
+                    <h3>Szablony promptow</h3>
+                    <button class="btn btn-sm btn-ghost" onclick="document.getElementById('templates-panel').classList.add('hidden')">&times;</button>
+                </div>
+                <div class="templates-categories">
+                    <button class="template-cat active" data-cat="all">Wszystkie</button>
+                    <button class="template-cat" data-cat="coding">Kodowanie</button>
+                    <button class="template-cat" data-cat="text">Tekst</button>
+                    <button class="template-cat" data-cat="tools">Narzedzia</button>
+                </div>
+                <div id="templates-grid" class="templates-grid"></div>
+            </div>
+
+            <!-- Monitor Panel (hidden by default) -->
+            <div id="monitor-panel" class="monitor-panel hidden">
+                <div class="monitor-header">
+                    <h3>Monitor systemu</h3>
+                    <button class="btn btn-sm btn-ghost" onclick="toggleMonitor()">&times;</button>
+                </div>
+                <div class="monitor-grid">
+                    <div class="monitor-card">
+                        <div class="monitor-label">CPU</div>
+                        <div class="monitor-bar"><div id="bar-cpu" class="monitor-fill" style="width:0%"></div></div>
+                        <div id="val-cpu" class="monitor-value">--%</div>
+                    </div>
+                    <div class="monitor-card">
+                        <div class="monitor-label">RAM</div>
+                        <div class="monitor-bar"><div id="bar-ram" class="monitor-fill" style="width:0%"></div></div>
+                        <div id="val-ram" class="monitor-value">--/-- GB</div>
+                    </div>
+                    <div class="monitor-card">
+                        <div class="monitor-label">Dysk</div>
+                        <div class="monitor-bar"><div id="bar-disk" class="monitor-fill" style="width:0%"></div></div>
+                        <div id="val-disk" class="monitor-value">--/-- GB</div>
+                    </div>
+                    <div class="monitor-card">
+                        <div class="monitor-label">GPU</div>
+                        <div class="monitor-bar"><div id="bar-gpu" class="monitor-fill gpu" style="width:0%"></div></div>
+                        <div id="val-gpu" class="monitor-value">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
             <div id="chat-messages" class="chat-messages">
                 <div class="welcome-message">
                     <h1>&#9889; NeuroForge</h1>
@@ -104,6 +186,10 @@
                             <span class="cap-icon">&#9000;</span>
                             <span>Shell</span>
                         </div>
+                        <div class="cap-item">
+                            <span class="cap-icon">&#128196;</span>
+                            <span>RAG</span>
+                        </div>
                     </div>
                     <p class="hint">Zaladuj model z bocznego panelu, zeby zaczac.</p>
                 </div>
@@ -111,7 +197,12 @@
 
             <!-- Input Area -->
             <div class="chat-input-area">
+                <div id="file-attachment" class="file-attachment hidden">
+                    <span id="attached-file-name"></span>
+                    <button class="btn-remove-file" onclick="removeAttachment()">&times;</button>
+                </div>
                 <div class="input-container">
+                    <input type="file" id="chat-file-input" class="hidden">
                     <textarea
                         id="chat-input"
                         placeholder="Napisz wiadomosc... (Enter = wyslij, Shift+Enter = nowa linia)"

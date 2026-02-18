@@ -18,7 +18,8 @@ from ..inference.router import select_model
 from ..tools.base import registry
 
 # Import tools to trigger registration
-from ..tools import filesystem, code_executor, web_search, web_fetch, shell  # noqa: F401
+from ..tools import filesystem, code_executor, web_search, web_fetch, shell, rag_search  # noqa: F401
+from ..rag.engine import rag_engine
 
 logger = logging.getLogger("neurostudio.agent")
 
@@ -82,7 +83,17 @@ class AgentLoop:
             return
 
         conversation = self.get_or_create_conversation(session_id)
-        conversation.append({"role": "user", "content": user_message})
+
+        # Inject RAG context if relevant documents exist
+        rag_context = rag_engine.get_context_for_query(user_message, max_chars=2000)
+        if rag_context:
+            augmented_msg = (
+                f"{user_message}\n\n"
+                f"[Relevant context from indexed documents]:\n{rag_context}"
+            )
+            conversation.append({"role": "user", "content": augmented_msg})
+        else:
+            conversation.append({"role": "user", "content": user_message})
 
         tools_schema = registry.to_openai_tools()
         tool_call_count = 0

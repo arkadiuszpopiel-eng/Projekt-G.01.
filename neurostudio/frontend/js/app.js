@@ -1,15 +1,19 @@
 /**
- * NeuroForge - Frontend Application
- * Handles WebSocket chat, model management, and UI interactions.
+ * NeuroForge - Frontend Application v0.2.0
+ * Handles WebSocket chat, model management, conversation history,
+ * system monitor, prompt templates, RAG, and file upload.
  */
 
 // ──── State ────
 const state = {
     ws: null,
+    monitorWs: null,
     sessionId: null,
     connected: false,
     modelLoaded: false,
     sending: false,
+    monitorOpen: false,
+    attachedFile: null,
 };
 
 // ──── DOM Elements ────
@@ -35,7 +39,11 @@ document.addEventListener('DOMContentLoaded', () => {
     loadModels();
     loadRecommendedModels();
     loadStatus();
+    loadConversationHistory();
+    loadDocumentsList();
+    loadTemplates();
     setupEventListeners();
+    startMiniMonitor();
 });
 
 // ──── WebSocket ────
@@ -97,6 +105,8 @@ function handleWSMessage(data) {
             btnSend.disabled = false;
             typingIndicator.classList.add('hidden');
             scrollToBottom();
+            // Refresh conversation list (auto-save happened on server)
+            loadConversationHistory();
             break;
 
         case 'cleared':
@@ -110,7 +120,7 @@ function sendMessage(text) {
         appendError('Brak polaczenia z serwerem. Odswież strone.');
         return;
     }
-    if (!text.trim()) return;
+    if (!text.trim() && !state.attachedFile) return;
 
     state.sending = true;
     btnSend.disabled = true;
@@ -120,11 +130,18 @@ function sendMessage(text) {
     const welcome = chatMessages.querySelector('.welcome-message');
     if (welcome) welcome.remove();
 
+    // Handle file attachment
+    let finalText = text;
+    if (state.attachedFile) {
+        finalText = `[Zalaczony plik: ${state.attachedFile.name}, sciezka: ${state.attachedFile.path}]\n\n${text}`;
+        removeAttachment();
+    }
+
     // Add user message to UI
-    appendUserMessage(text);
+    appendUserMessage(finalText);
 
     // Send via WebSocket
-    state.ws.send(JSON.stringify({ type: 'message', content: text }));
+    state.ws.send(JSON.stringify({ type: 'message', content: finalText }));
 
     // Clear input
     chatInput.value = '';
@@ -235,11 +252,92 @@ function clearChat() {
     currentAssistantEl = null;
     chatMessages.innerHTML = `
         <div class="welcome-message">
-            <h1>&#9881; NeuroForge</h1>
+            <h1>&#9889; NeuroForge</h1>
             <p>Lokalne studio AI z pelnym dostepem do Twojego komputera.</p>
             <p class="hint">Zaladuj model i zacznij rozmowe!</p>
         </div>
     `;
+}
+
+// ──── Conversation History ────
+
+async function loadConversationHistory() {
+    try {
+        const resp = await fetch('/api/conversations');
+        const data = await resp.json();
+        const container = $('conversation-list');
+
+        if (!data.conversations || data.conversations.length === 0) {
+            container.innerHTML = '<div class="conversation-list-empty">Brak zapisanych rozmow</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        for (const conv of data.conversations.slice(0, 20)) {
+            const el = document.createElement('div');
+            el.className = 'conversation-item';
+            if (conv.session_id === state.sessionId) {
+                el.classList.add('active');
+            }
+
+            const date = new Date(conv.updated_at * 1000);
+            const dateStr = date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'});
+
+            el.innerHTML = `
+                <div class="conv-title">${escapeHtml(conv.title || 'Nowa rozmowa')}</div>
+                <div class="conv-meta">${dateStr} &middot; ${conv.message_count || 0} wiad.</div>
+            `;
+            el.onclick = () => switchToConversation(conv.session_id);
+
+            // Right-click to delete
+            el.oncontextmenu = (e) => {
+                e.preventDefault();
+                if (confirm('Usunac te rozmowe?')) {
+                    deleteConversation(conv.session_id);
+                }
+            };
+
+            container.appendChild(el);
+        }
+    } catch (e) {
+        console.error('Failed to load conversation history:', e);
+    }
+}
+
+function switchToConversation(sessionId) {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ type: 'set_session', session_id: sessionId }));
+
+        // Load conversation messages into UI
+        fetch(`/api/conversations/${sessionId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.messages) return;
+                chatMessages.innerHTML = '';
+                currentAssistantEl = null;
+
+                for (const msg of data.messages) {
+                    if (msg.role === 'user') {
+                        appendUserMessage(msg.content);
+                    } else if (msg.role === 'assistant') {
+                        if (msg.content) {
+                            appendAssistantText(msg.content);
+                        }
+                    }
+                }
+                loadConversationHistory();
+            })
+            .catch(e => console.error('Failed to load conversation:', e));
+    }
+}
+
+async function deleteConversation(sessionId) {
+    try {
+        await fetch(`/api/conversations/${sessionId}`, { method: 'DELETE' });
+        loadConversationHistory();
+    } catch (e) {
+        console.error('Failed to delete conversation:', e);
+    }
 }
 
 // ──── Model Management ────
@@ -303,7 +401,7 @@ async function downloadModel(repo, filename, btn) {
         if (resp.ok) {
             btn.textContent = 'Pobrano!';
             btn.className = 'downloaded';
-            loadModels(); // Refresh model list
+            loadModels();
         } else {
             const data = await resp.json();
             btn.textContent = 'Blad!';
@@ -387,6 +485,234 @@ function setStatus(type, text) {
     statusText.textContent = text;
 }
 
+// ──── System Monitor ────
+
+function startMiniMonitor() {
+    // Poll system stats every 5s for mini display
+    updateMiniStats();
+    setInterval(updateMiniStats, 5000);
+}
+
+async function updateMiniStats() {
+    try {
+        const resp = await fetch('/api/monitor');
+        const data = await resp.json();
+
+        const miniCpu = $('mini-cpu');
+        const miniRam = $('mini-ram');
+        const miniGpu = $('mini-gpu');
+
+        if (data.cpu && data.cpu.percent !== undefined) {
+            miniCpu.textContent = `CPU ${data.cpu.percent}%`;
+        }
+        if (data.ram && data.ram.percent !== undefined) {
+            miniRam.textContent = `RAM ${data.ram.percent}%`;
+        }
+        if (data.gpu && data.gpu.gpu_use_percent !== undefined && data.gpu.gpu_use_percent !== 'N/A') {
+            miniGpu.textContent = `GPU ${data.gpu.gpu_use_percent}%`;
+        } else {
+            miniGpu.textContent = 'GPU --';
+        }
+
+        // Update monitor panel if open
+        if (state.monitorOpen) {
+            updateMonitorPanel(data);
+        }
+    } catch (e) {
+        // Silent fail for mini monitor
+    }
+}
+
+function updateMonitorPanel(data) {
+    if (data.cpu) {
+        $('bar-cpu').style.width = (data.cpu.percent || 0) + '%';
+        $('val-cpu').textContent = `${data.cpu.percent || 0}% (${data.cpu.count_logical || '?'} threads)`;
+    }
+    if (data.ram) {
+        $('bar-ram').style.width = (data.ram.percent || 0) + '%';
+        $('val-ram').textContent = `${data.ram.used_gb || 0}/${data.ram.total_gb || 0} GB (${data.ram.percent || 0}%)`;
+    }
+    if (data.disk) {
+        $('bar-disk').style.width = (data.disk.percent || 0) + '%';
+        $('val-disk').textContent = `${data.disk.used_gb || 0}/${data.disk.total_gb || 0} GB`;
+    }
+    if (data.gpu) {
+        const gpuPct = data.gpu.gpu_use_percent;
+        if (gpuPct !== undefined && gpuPct !== 'N/A') {
+            $('bar-gpu').style.width = gpuPct + '%';
+            const temp = data.gpu.temperature_c !== 'N/A' ? ` ${data.gpu.temperature_c}°C` : '';
+            $('val-gpu').textContent = `${data.gpu.vendor || 'GPU'} ${gpuPct}%${temp}`;
+        } else {
+            $('val-gpu').textContent = data.gpu.message || 'Brak danych GPU';
+        }
+    }
+}
+
+function toggleMonitor() {
+    const panel = $('monitor-panel');
+    state.monitorOpen = !state.monitorOpen;
+    panel.classList.toggle('hidden');
+    if (state.monitorOpen) {
+        updateMiniStats(); // Immediate refresh
+    }
+}
+
+// ──── Prompt Templates ────
+
+async function loadTemplates() {
+    try {
+        const resp = await fetch('/api/templates');
+        const data = await resp.json();
+        renderTemplates(data.templates, 'all');
+
+        // Category filter buttons
+        document.querySelectorAll('.template-cat').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.template-cat').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderTemplates(data.templates, btn.dataset.cat);
+            });
+        });
+    } catch (e) {
+        console.error('Failed to load templates:', e);
+    }
+}
+
+function renderTemplates(templates, category) {
+    const grid = $('templates-grid');
+    grid.innerHTML = '';
+
+    const filtered = category === 'all'
+        ? templates
+        : templates.filter(t => t.category === category);
+
+    for (const t of filtered) {
+        const card = document.createElement('div');
+        card.className = 'template-card';
+        card.innerHTML = `
+            <span class="template-icon">${t.icon || '&#9889;'}</span>
+            <span class="template-name">${escapeHtml(t.name)}</span>
+        `;
+        card.onclick = () => useTemplate(t);
+        grid.appendChild(card);
+    }
+}
+
+function useTemplate(template) {
+    let prompt = template.prompt;
+
+    // If template has variables, ask the user for values
+    if (template.variables && template.variables.length > 0) {
+        for (const v of template.variables) {
+            const value = window.prompt(`Podaj wartosc dla "${v}":`);
+            if (value === null) return; // Cancelled
+            prompt = prompt.replace(`{${v}}`, value);
+        }
+    }
+
+    chatInput.value = prompt;
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
+    chatInput.focus();
+
+    // Hide templates panel
+    $('templates-panel').classList.add('hidden');
+}
+
+// ──── Documents (RAG) ────
+
+async function loadDocumentsList() {
+    try {
+        const resp = await fetch('/api/documents');
+        const data = await resp.json();
+        const container = $('documents-list');
+
+        if (!data.documents || data.documents.length === 0) {
+            container.innerHTML = '<div class="doc-empty">Brak zaindeksowanych dokumentow</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        for (const doc of data.documents) {
+            const el = document.createElement('div');
+            el.className = 'doc-item';
+
+            const sizeKb = Math.round(doc.content_length / 1024);
+            el.innerHTML = `
+                <div class="doc-info">
+                    <span class="doc-name">${escapeHtml(doc.filename)}</span>
+                    <span class="doc-meta">${sizeKb} KB, ${doc.chunk_count} fragmentow</span>
+                </div>
+                <button class="btn-doc-remove" onclick="removeDocument('${doc.doc_id}')" title="Usun">&times;</button>
+            `;
+            container.appendChild(el);
+        }
+    } catch (e) {
+        console.error('Failed to load documents:', e);
+    }
+}
+
+async function uploadDocument(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const resp = await fetch('/api/documents/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (resp.ok) {
+            loadDocumentsList();
+        } else {
+            const data = await resp.json();
+            alert('Blad: ' + (data.detail || 'Upload failed'));
+        }
+    } catch (e) {
+        alert('Blad uploadu: ' + e.message);
+    }
+}
+
+async function removeDocument(docId) {
+    try {
+        await fetch(`/api/documents/${docId}`, { method: 'DELETE' });
+        loadDocumentsList();
+    } catch (e) {
+        console.error('Failed to remove document:', e);
+    }
+}
+
+// ──── File Upload (Chat Attachment) ────
+
+async function uploadFileForChat(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const resp = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (resp.ok) {
+            const data = await resp.json();
+            state.attachedFile = { name: data.filename, path: data.path };
+            $('attached-file-name').textContent = `&#128206; ${data.filename}`;
+            $('file-attachment').classList.remove('hidden');
+        } else {
+            alert('Blad uploadu pliku');
+        }
+    } catch (e) {
+        alert('Blad: ' + e.message);
+    }
+}
+
+function removeAttachment() {
+    state.attachedFile = null;
+    $('file-attachment').classList.add('hidden');
+    $('attached-file-name').textContent = '';
+}
+
 // ──── Event Listeners ────
 
 function setupEventListeners() {
@@ -451,6 +777,40 @@ function setupEventListeners() {
             }
         });
     });
+
+    // Templates toggle
+    $('btn-templates').addEventListener('click', () => {
+        $('templates-panel').classList.toggle('hidden');
+        $('monitor-panel').classList.add('hidden');
+        state.monitorOpen = false;
+    });
+
+    // Monitor toggle
+    $('btn-monitor').addEventListener('click', toggleMonitor);
+
+    // File upload button (top bar)
+    $('btn-upload-file').addEventListener('click', () => {
+        $('chat-file-input').click();
+    });
+
+    $('chat-file-input').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            uploadFileForChat(e.target.files[0]);
+            e.target.value = '';
+        }
+    });
+
+    // Document upload (RAG)
+    $('btn-upload-doc').addEventListener('click', () => {
+        $('doc-file-input').click();
+    });
+
+    $('doc-file-input').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            uploadDocument(e.target.files[0]);
+            e.target.value = '';
+        }
+    });
 }
 
 // ──── Utilities ────
@@ -496,3 +856,6 @@ function scrollToBottom() {
 
 // Expose for inline event handlers
 window.downloadModel = downloadModel;
+window.removeDocument = removeDocument;
+window.removeAttachment = removeAttachment;
+window.toggleMonitor = toggleMonitor;
