@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+
+# llama.cpp binaries
+bin/
+
+# Models (large files)
+models/*.gguf
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Generated launcher
+NeuroForge.bat
+neurostudio.sh
